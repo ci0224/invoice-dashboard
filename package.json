@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "react-router build",
-    "dev": "VITE_DEV_ENVIRONMENT=true react-router dev",
+    "dev": "VITE_DEV_ENVIRONMENT=true react-router dev --port 3000",
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc"
   },

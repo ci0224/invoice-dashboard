@@ -1,14 +1,12 @@
 const COGNITO_DOMAIN = 'https://us-west-2rmblxxkdu.auth.us-west-2.amazoncognito.com';
 const CLIENT_ID = '338pa180ct0rp50ctcdrfmcepp';
 const REDIRECT_URI = import.meta.env.VITE_DEV_ENVIRONMENT === 'true'
-  ? 'http://localhost:5173'
+  ? 'http://localhost:3000'
   : 'https://invoice.airyvibe.com';
 export const initiateLogin = () => {
-  const scope = 'email openid phone';
+  const scope = 'email+openid+profile';
   const responseType = 'code';
-  
   const authUrl = `${COGNITO_DOMAIN}/login?client_id=${CLIENT_ID}&response_type=${responseType}&scope=${scope}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
-  
   window.location.href = authUrl;
 };
 
