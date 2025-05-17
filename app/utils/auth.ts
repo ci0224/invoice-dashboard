@@ -3,6 +3,72 @@ const CLIENT_ID = '338pa180ct0rp50ctcdrfmcepp';
 const REDIRECT_URI = import.meta.env.VITE_DEV_ENVIRONMENT === 'true'
   ? 'http://localhost:3000'
   : 'https://invoice.airyvibe.com';
+
+interface TokenPayload {
+  exp: number;
+  sub: string;
+  email?: string;
+  [key: string]: any;
+}
+
+export const parseJwt = (token: string): TokenPayload => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error('Error parsing JWT:', error);
+    throw new Error('Invalid token format');
+  }
+};
+
+export const isTokenExpired = (token: string): boolean => {
+  try {
+    const payload = parseJwt(token);
+    const currentTime = Math.floor(Date.now() / 1000);
+    return payload.exp < currentTime;
+  } catch (error) {
+    console.error('Error checking token expiration:', error);
+    return true;
+  }
+};
+
+export const refreshTokens = async (refreshToken: string) => {
+  try {
+    const tokenEndpoint = `${COGNITO_DOMAIN}/oauth2/token`;
+    const body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: CLIENT_ID,
+      refresh_token: refreshToken,
+    });
+
+    const response = await fetch(tokenEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: body.toString(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to refresh tokens');
+    }
+
+    const tokens = await response.json();
+    return {
+      accessToken: tokens.access_token,
+      idToken: tokens.id_token,
+      refreshToken: tokens.refresh_token || refreshToken, // Keep old refresh token if new one not provided
+    };
+  } catch (error) {
+    console.error('Error refreshing tokens:', error);
+    throw error;
+  }
+};
+
 export const initiateLogin = () => {
   const scope = 'email+openid+profile';
   const responseType = 'code';
