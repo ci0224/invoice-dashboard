@@ -1,5 +1,6 @@
 const COGNITO_DOMAIN = 'https://us-west-2rmblxxkdu.auth.us-west-2.amazoncognito.com';
 const CLIENT_ID = '338pa180ct0rp50ctcdrfmcepp';
+const CLIENT_SECRET = import.meta.env.invoice_dashbroad_userpool_client_secret;
 const REDIRECT_URI = import.meta.env.VITE_DEV_ENVIRONMENT === 'true'
   ? 'http://localhost:3000'
   : 'https://invoice.airyvibe.com';
@@ -139,6 +140,7 @@ export const handleAuthCallback = async (code: string) => {
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
       code,
       redirect_uri: REDIRECT_URI,
     });
@@ -154,7 +156,7 @@ export const handleAuthCallback = async (code: string) => {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error('Token exchange failed:', errorData);
-      throw new Error(errorData.error_description || 'Failed to exchange code for tokens');
+      throw new Error(`Failed to exchange code for tokens: ${errorData.error_description || errorData.error || 'Unknown error'}`);
     }
 
     const tokens = await response.json();
@@ -175,14 +177,23 @@ export const clearTokens = () => {
   localStorage.removeItem(EXPIRE_AT_MS_KEY);
 };
 
-export const getAccessToken = async (): Promise<string | null> => {
-  const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
-  if (!accessToken) return null;
+/**
+ * Retrieves an authentication token from secure storage.
+ * If the token is expired, it will automatically refresh it.
+ * If no token exists, it will return null.
+ *
+ * @param tokenType - The type of token to retrieve ('accessToken' or 'idToken', defaults to 'accessToken')
+ * @returns Promise resolving to the requested token string, or null if retrieval fails
+ */
+export const getAccessToken = async (tokenType: 'accessToken' | 'idToken' = 'accessToken'): Promise<string | null> => {
+  const tokenKey = tokenType === 'accessToken' ? ACCESS_TOKEN_KEY : ID_TOKEN_KEY;
+  const token = localStorage.getItem(tokenKey);
+  if (!token) return null;
 
   if (isTokenExpired()) {
     try {
       await refreshTokens();
-      return localStorage.getItem(ACCESS_TOKEN_KEY);
+      return localStorage.getItem(tokenKey);
     } catch (error) {
       console.error('Error refreshing token:', error);
       clearTokens();
@@ -190,5 +201,5 @@ export const getAccessToken = async (): Promise<string | null> => {
     }
   }
 
-  return accessToken;
+  return token;
 };

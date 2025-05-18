@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { handleAuthCallback } from "../utils/auth";
 import { useUser } from "../contexts/UserContext";
@@ -9,16 +9,18 @@ interface AuthWrapperProps {
 }
 
 export default function AuthWrapper({ children }: AuthWrapperProps) {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { isAuthenticated, getToken } = useUser();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const processedCodeRef = useRef<string | null>(null);
 
   useEffect(() => {
     const code = searchParams.get("code");
     
-    if (code && !isProcessing) {
+    if (code && !isProcessing && code !== processedCodeRef.current) {
+      processedCodeRef.current = code;
       setIsProcessing(true);
       setError(null);
       
