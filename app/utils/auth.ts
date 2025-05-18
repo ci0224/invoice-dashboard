@@ -4,11 +4,35 @@ const REDIRECT_URI = import.meta.env.VITE_DEV_ENVIRONMENT === 'true'
   ? 'http://localhost:3000'
   : 'https://invoice.airyvibe.com';
 
+// OAuth endpoints
+const DISCOVERY_DOCUMENT = {
+  authorizationEndpoint: `${COGNITO_DOMAIN}/oauth2/authorize`,
+  tokenEndpoint: `${COGNITO_DOMAIN}/oauth2/token`,
+  revocationEndpoint: `${COGNITO_DOMAIN}/oauth2/revoke`,
+};
+
+// Constants for token storage
+const ID_TOKEN_KEY = 'ID_TOKEN';
+const ACCESS_TOKEN_KEY = 'ACCESS_TOKEN';
+const REFRESH_TOKEN_KEY = 'REFRESH_TOKEN';
+const EXPIRE_AT_MS_KEY = 'AUTH_EXPIRE_AT_MS';
+
+// Constants for token expiration
+const S_TO_MS = 1000;
+const TOKEN_EXPIRE_SAFE_TIME_MS = 60000; // 1 minute safety margin
+
 interface TokenPayload {
   exp: number;
   sub: string;
   email?: string;
   [key: string]: any;
+}
+
+interface TokenResponse {
+  access_token: string;
+  id_token: string;
+  refresh_token?: string;
+  expires_in: number;
 }
 
 export const parseJwt = (token: string): TokenPayload => {
@@ -25,27 +49,61 @@ export const parseJwt = (token: string): TokenPayload => {
   }
 };
 
-export const isTokenExpired = (token: string): boolean => {
+export const saveTokens = async (tokenResponse: TokenResponse) => {
+  if (!tokenResponse.id_token || !tokenResponse.access_token || !tokenResponse.expires_in) {
+    throw new Error('Missing required tokens');
+  }
+
   try {
-    const payload = parseJwt(token);
-    const currentTime = Math.floor(Date.now() / 1000);
-    return payload.exp < currentTime;
+    // Validate tokens before saving
+    parseJwt(tokenResponse.id_token);
+    parseJwt(tokenResponse.access_token);
+
+    // Save tokens to localStorage and log for testing
+    console.log('Saving ID token:', tokenResponse.id_token);
+    localStorage.setItem(ID_TOKEN_KEY, tokenResponse.id_token);
+    
+    console.log('Saving access token:', tokenResponse.access_token); 
+    localStorage.setItem(ACCESS_TOKEN_KEY, tokenResponse.access_token);
+    
+    if (tokenResponse.refresh_token) {
+      console.log('Saving refresh token:', tokenResponse.refresh_token);
+      localStorage.setItem(REFRESH_TOKEN_KEY, tokenResponse.refresh_token);
+    }
+
+    // Calculate and save expiration time with safety margin
+    let expireTime = Date.now() + tokenResponse.expires_in * S_TO_MS;
+    if (tokenResponse.expires_in > 2 * TOKEN_EXPIRE_SAFE_TIME_MS) {
+      expireTime -= TOKEN_EXPIRE_SAFE_TIME_MS;
+    }
+    localStorage.setItem(EXPIRE_AT_MS_KEY, expireTime.toString());
   } catch (error) {
-    console.error('Error checking token expiration:', error);
-    return true;
+    console.error('Error saving tokens:', error);
+    clearTokens();
+    throw new Error('Failed to save tokens: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 };
 
-export const refreshTokens = async (refreshToken: string) => {
+export const isTokenExpired = (): boolean => {
+  const expireAtMs = localStorage.getItem(EXPIRE_AT_MS_KEY);
+  if (!expireAtMs) return true;
+  return Date.now() >= parseInt(expireAtMs);
+};
+
+export const refreshTokens = async () => {
+  const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+  if (!refreshToken) {
+    throw new Error('Refresh token is missing');
+  }
+
   try {
-    const tokenEndpoint = `${COGNITO_DOMAIN}/oauth2/token`;
     const body = new URLSearchParams({
       grant_type: 'refresh_token',
       client_id: CLIENT_ID,
       refresh_token: refreshToken,
     });
 
-    const response = await fetch(tokenEndpoint, {
+    const response = await fetch(DISCOVERY_DOCUMENT.tokenEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -54,17 +112,16 @@ export const refreshTokens = async (refreshToken: string) => {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to refresh tokens');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error_description || 'Failed to refresh tokens');
     }
 
     const tokens = await response.json();
-    return {
-      accessToken: tokens.access_token,
-      idToken: tokens.id_token,
-      refreshToken: tokens.refresh_token || refreshToken, // Keep old refresh token if new one not provided
-    };
+    await saveTokens(tokens);
+    return tokens;
   } catch (error) {
     console.error('Error refreshing tokens:', error);
+    clearTokens();
     throw error;
   }
 };
@@ -72,13 +129,13 @@ export const refreshTokens = async (refreshToken: string) => {
 export const initiateLogin = () => {
   const scope = 'email+openid+profile';
   const responseType = 'code';
-  const authUrl = `${COGNITO_DOMAIN}/login?client_id=${CLIENT_ID}&response_type=${responseType}&scope=${scope}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
+  const authUrl = `${DISCOVERY_DOCUMENT.authorizationEndpoint}?client_id=${CLIENT_ID}&response_type=${responseType}&scope=${scope}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
   window.location.href = authUrl;
 };
 
 export const handleAuthCallback = async (code: string) => {
   try {
-    const tokenEndpoint = `${COGNITO_DOMAIN}/oauth2/token`;
+    console.log('Exchanging code for tokens...');
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       client_id: CLIENT_ID,
@@ -86,7 +143,7 @@ export const handleAuthCallback = async (code: string) => {
       redirect_uri: REDIRECT_URI,
     });
 
-    const response = await fetch(tokenEndpoint, {
+    const response = await fetch(DISCOVERY_DOCUMENT.tokenEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -95,17 +152,43 @@ export const handleAuthCallback = async (code: string) => {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to exchange code for tokens');
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Token exchange failed:', errorData);
+      throw new Error(errorData.error_description || 'Failed to exchange code for tokens');
     }
 
     const tokens = await response.json();
-    return {
-      accessToken: tokens.access_token,
-      idToken: tokens.id_token,
-      refreshToken: tokens.refresh_token,
-    };
+    console.log('Token exchange successful, saving tokens...');
+    await saveTokens(tokens);
+    return tokens;
   } catch (error) {
     console.error('Error exchanging code for tokens:', error);
+    clearTokens();
     throw error;
   }
-}; 
+};
+
+export const clearTokens = () => {
+  localStorage.removeItem(ID_TOKEN_KEY);
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(EXPIRE_AT_MS_KEY);
+};
+
+export const getAccessToken = async (): Promise<string | null> => {
+  const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+  if (!accessToken) return null;
+
+  if (isTokenExpired()) {
+    try {
+      await refreshTokens();
+      return localStorage.getItem(ACCESS_TOKEN_KEY);
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      clearTokens();
+      return null;
+    }
+  }
+
+  return accessToken;
+};

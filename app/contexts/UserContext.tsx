@@ -1,92 +1,40 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { isTokenExpired, refreshTokens } from '../utils/auth';
-
-interface UserTokens {
-  accessToken: string;
-  idToken: string;
-  refreshToken: string;
-}
+import { getAccessToken, clearTokens } from '../utils/auth';
 
 interface UserContextType {
   isAuthenticated: boolean;
-  tokens: UserTokens | null;
-  setTokens: (tokens: UserTokens) => void;
   logout: () => void;
+  getToken: () => Promise<string | null>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [tokens, setTokens] = useState<UserTokens | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const validateAndRefreshTokens = useCallback(async (currentTokens: UserTokens) => {
-    try {
-      // Check if access token is expired
-      if (isTokenExpired(currentTokens.accessToken)) {
-        // If access token is expired, try to refresh
-        const newTokens = await refreshTokens(currentTokens.refreshToken);
-        setTokens(newTokens);
-        localStorage.setItem('userTokens', JSON.stringify(newTokens));
-        return newTokens;
-      }
-      return currentTokens;
-    } catch (error) {
-      console.error('Error validating/refreshing tokens:', error);
-      // If refresh fails, logout
-      setTokens(null);
-      setIsAuthenticated(false);
-      localStorage.removeItem('userTokens');
-      return null;
-    }
+  useEffect(() => {
+    // Check initial auth state
+    const checkAuth = async () => {
+      const token = await getAccessToken();
+      setIsAuthenticated(!!token);
+    };
+    checkAuth();
   }, []);
 
-  useEffect(() => {
-    // Load tokens from storage on mount
-    const storedTokens = localStorage.getItem('userTokens');
-    if (storedTokens) {
-      try {
-        const parsedTokens = JSON.parse(storedTokens);
-        // Validate and refresh if needed
-        validateAndRefreshTokens(parsedTokens).then((validTokens) => {
-          if (validTokens) {
-            setTokens(validTokens);
-            setIsAuthenticated(true);
-          }
-        });
-      } catch (error) {
-        console.error('Error parsing stored tokens:', error);
-        localStorage.removeItem('userTokens');
-      }
-    }
-  }, [validateAndRefreshTokens]);
-
-  // Set up periodic token validation
-  useEffect(() => {
-    if (!tokens) return;
-
-    const validateInterval = setInterval(() => {
-      validateAndRefreshTokens(tokens);
-    }, 5 * 60 * 1000); // Check every 5 minutes
-
-    return () => clearInterval(validateInterval);
-  }, [tokens, validateAndRefreshTokens]);
-
-  const handleSetTokens = (newTokens: UserTokens) => {
-    setTokens(newTokens);
-    setIsAuthenticated(true);
-    localStorage.setItem('userTokens', JSON.stringify(newTokens));
+  const getToken = async (): Promise<string | null> => {
+    const token = await getAccessToken();
+    setIsAuthenticated(!!token);
+    return token;
   };
 
   const logout = () => {
-    setTokens(null);
+    clearTokens();
     setIsAuthenticated(false);
-    localStorage.removeItem('userTokens');
   };
 
   return (
-    <UserContext.Provider value={{ isAuthenticated, tokens, setTokens: handleSetTokens, logout }}>
+    <UserContext.Provider value={{ isAuthenticated, logout, getToken }}>
       {children}
     </UserContext.Provider>
   );
