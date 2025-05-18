@@ -1,6 +1,10 @@
 import type { Route } from "./+types/home";
 import { useUser } from "../contexts/UserContext";
-import { useEffect, useState } from "react";
+import { DashboardHeader } from "../components/DashboardHeader";
+import { InvoiceSection } from "../components/InvoiceSection";
+import { DataSection } from "../components/DataSection";
+import { UsageBar } from "../components/UsageBar";
+import { TokenDebugPanel } from "../components/TokenDebugPanel";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -10,55 +14,66 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Home() {
-  const { getToken } = useUser();
-  const [tokens, setTokens] = useState<{
-    accessToken: string | null;
-    idToken: string | null;
-    refreshToken: string | null;
-  }>({
-    accessToken: null,
-    idToken: null,
-    refreshToken: null,
-  });
+  const { logout } = useUser();
 
-  useEffect(() => {
-    const fetchTokens = async () => {
-      const accessToken = await getToken();
-      const idToken = localStorage.getItem('ID_TOKEN');
-      const refreshToken = localStorage.getItem('REFRESH_TOKEN');
-      
-      setTokens({
-        accessToken,
-        idToken,
-        refreshToken,
-      });
-    };
-    fetchTokens();
-  }, [getToken]);
+  const handleCreateInvoice = () => {
+    // TODO: Implement invoice creation
+    console.log('Create invoice clicked');
+  };
 
-  const TokenDisplay = ({ label, value }: { label: string; value: string | null }) => (
-    <div className="mb-4">
-      <h3 className="text-lg font-medium text-gray-800 mb-2">{label}</h3>
-      <div className="bg-gray-100 p-4 rounded">
-        <pre className="text-sm text-gray-700 whitespace-pre-wrap break-words">
-          {value || "Not available"}
-        </pre>
-      </div>
-    </div>
-  );
+  const handleExportData = () => {
+    // TODO: Implement data export
+    console.log('Export data clicked');
+  };
+
+  const handleViewReports = () => {
+    // TODO: Implement view reports
+    console.log('View reports clicked');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <div className="mt-4 p-4 bg-white rounded-lg shadow">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Token Information</h2>
-          <div className="space-y-4">
-            <TokenDisplay label="Access Token" value={tokens.accessToken} />
-            <TokenDisplay label="ID Token" value={tokens.idToken} />
-            <TokenDisplay label="Refresh Token" value={tokens.refreshToken} />
-          </div>
+        <DashboardHeader onLogout={logout} />
+
+        <UsageBar
+          metrics={[
+            {
+              label: "Active Invoices",
+              value: 5,
+              max: 10,
+              color: "blue"
+            },
+            {
+              label: "Storage Used",
+              value: 2.5,
+              max: 5,
+              color: "green"
+            },
+            {
+              label: "API Calls",
+              value: 750,
+              max: 1000,
+              color: "yellow"
+            },
+            {
+              label: "Team Members",
+              value: 3,
+              max: 5,
+              color: "red"
+            }
+          ]}
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <InvoiceSection onCreateInvoice={handleCreateInvoice} />
+          <DataSection 
+            onExportData={handleExportData}
+            onViewReports={handleViewReports}
+          />
         </div>
+
+        <TokenDebugPanel />
       </div>
     </div>
   );

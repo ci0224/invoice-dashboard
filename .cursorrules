@@ -1,0 +1,63 @@
+# Cursor Rules for Invoice Dashboard
+
+## Authentication Rules
+
+1. **Token Management**
+   - Always use `useUser()` hook for authentication-related operations
+   - Use `getToken()` from `useUser()` for accessing the access token
+   - Store tokens in localStorage as per existing implementation:
+     - `ID_TOKEN` for ID token
+     - `REFRESH_TOKEN` for refresh token
+   - Access tokens are managed through `useUser()` hook
+
+2. **Package Management**
+   - Avoid adding new packages unless absolutely necessary
+   - Check existing dependencies in `package.json` before adding new ones
+   - Document the reason for any new package additions
+   - Prefer built-in browser APIs and existing packages
+
+3. **Feature Implementation**
+   - Always check `feature.md` before implementing new features
+   - Follow the existing authentication flow using AWS Cognito
+   - Implement features in order of priority as listed in `feature.md`
+   - Document any deviations from the planned features
+
+4. **Code Organization**
+   - Keep authentication logic in the `contexts` directory
+   - Use protected routes for authenticated content
+   - Follow the existing token display pattern in dashboard components
+   - Maintain consistent error handling for authentication failures
+
+5. **Security Considerations**
+   - Never expose tokens in component props
+   - Use secure storage methods for tokens
+   - Implement proper token validation before use
+   - Follow AWS Cognito best practices for token management
+
+6. **UI/UX Guidelines**
+   - Maintain consistent styling with existing components
+   - Use the established token display format
+   - Provide clear feedback for authentication states
+   - Follow the existing dashboard layout patterns
+
+## Development Workflow
+
+1. **Before Adding New Features**
+   - Check `feature.md` for existing or planned features
+   - Review current authentication implementation
+   - Consider security implications
+   - Document the approach
+
+2. **When Modifying Authentication**
+   - Test token persistence
+   - Verify protected route behavior
+   - Ensure backward compatibility
+   - Update documentation if needed
+
+3. **Code Review Checklist**
+   - Authentication flow integrity
+   - Token handling security
+   - Package dependency necessity
+   - Feature alignment with roadmap
+
+Start your every responses with "Hi Doctor Huang!".
