@@ -134,7 +134,7 @@ export const initiateLogin = () => {
   window.location.href = authUrl;
 };
 
-const exchangeTokensWithCognito = async (code: string) => {
+const exchangeTokensWithLocalClientSecret = async (code: string) => {
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
     client_id: CLIENT_ID,
@@ -161,7 +161,7 @@ const exchangeTokensWithCognito = async (code: string) => {
 };
 
 const exchangeTokensWithAPI = async (code: string) => {
-  const response = await fetch('/api/auth/token', {
+  const response = await fetch('https://invoice-api.airyvibe.com/exchange_token', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -183,7 +183,7 @@ export const handleAuthCallback = async (code: string) => {
     console.log('Exchanging code for tokens...');
     
     const tokens = import.meta.env.VITE_DEV_ENVIRONMENT === 'true'
-      ? await exchangeTokensWithCognito(code)
+      ? await exchangeTokensWithLocalClientSecret(code)
       : await exchangeTokensWithAPI(code);
 
     console.log('Token exchange successful, saving tokens...');

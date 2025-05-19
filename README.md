@@ -37,6 +37,18 @@ Install the dependencies:
 npm install
 ```
 
+### Environment Variables
+
+Create a `.env` file in the root directory with the following variables:
+
+```bash
+# Cognito Client Secret for authentication
+VITE_INVOICE_DASHBOARD_USERPOOL_CLIENT_SECRET=your_client_secret_here
+
+```
+
+You can obtain the `VITE_INVOICE_DASHBOARD_USERPOOL_CLIENT_SECRET` from your AWS Cognito User Pool settings. This secret is required for secure token exchange during the authentication process.
+
 ### Development
 
 Start the development server with HMR:
