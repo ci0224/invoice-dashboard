@@ -1,6 +1,6 @@
 const COGNITO_DOMAIN = 'https://us-west-2rmblxxkdu.auth.us-west-2.amazoncognito.com';
 const CLIENT_ID = '338pa180ct0rp50ctcdrfmcepp';
-const CLIENT_SECRET = import.meta.env.invoice_dashbroad_userpool_client_secret;
+const CLIENT_SECRET = import.meta.env.VITE_INVOICE_DASHBOARD_USERPOOL_CLIENT_SECRET as string;
 const REDIRECT_URI = import.meta.env.VITE_DEV_ENVIRONMENT === 'true'
   ? 'http://localhost:3000'
   : 'https://invoice.airyvibe.com';
@@ -134,32 +134,58 @@ export const initiateLogin = () => {
   window.location.href = authUrl;
 };
 
+const exchangeTokensWithCognito = async (code: string) => {
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    client_id: CLIENT_ID,
+    client_secret: CLIENT_SECRET,
+    code,
+    redirect_uri: REDIRECT_URI,
+  });
+
+  const response = await fetch(DISCOVERY_DOCUMENT.tokenEndpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error('Token exchange failed:', errorData);
+    throw new Error(`Failed to exchange code for tokens: ${errorData.error_description || errorData.error || 'Unknown error'}`);
+  }
+
+  return response.json();
+};
+
+const exchangeTokensWithAPI = async (code: string) => {
+  const response = await fetch('/api/auth/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ code }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error('Token exchange failed:', errorData);
+    throw new Error(`Failed to exchange code for tokens: ${errorData.message || 'Unknown error'}`);
+  }
+
+  return response.json();
+};
+
 export const handleAuthCallback = async (code: string) => {
   try {
     console.log('Exchanging code for tokens...');
-    const body = new URLSearchParams({
-      grant_type: 'authorization_code',
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      code,
-      redirect_uri: REDIRECT_URI,
-    });
+    
+    const tokens = import.meta.env.VITE_DEV_ENVIRONMENT === 'true'
+      ? await exchangeTokensWithCognito(code)
+      : await exchangeTokensWithAPI(code);
 
-    const response = await fetch(DISCOVERY_DOCUMENT.tokenEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: body.toString(),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Token exchange failed:', errorData);
-      throw new Error(`Failed to exchange code for tokens: ${errorData.error_description || errorData.error || 'Unknown error'}`);
-    }
-
-    const tokens = await response.json();
     console.log('Token exchange successful, saving tokens...');
     await saveTokens(tokens);
     return tokens;
