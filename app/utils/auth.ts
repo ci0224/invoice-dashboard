@@ -229,3 +229,21 @@ export const getAccessToken = async (tokenType: 'accessToken' | 'idToken' = 'acc
 
   return token;
 };
+
+/**
+ * Gets the username from the ID token.
+ * @returns Promise resolving to the username string, or null if not available
+ */
+export const getUsername = async (): Promise<string | null> => {
+  try {
+    const idToken = await getAccessToken('idToken');
+    if (!idToken) return null;
+    
+    const payload = parseJwt(idToken);
+    // Cognito stores username in the 'cognito:username' claim
+    return payload['cognito:username'] || null;
+  } catch (error) {
+    console.error('Error getting username:', error);
+    return null;
+  }
+};
