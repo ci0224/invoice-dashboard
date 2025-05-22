@@ -36,34 +36,7 @@ export default function Home() {
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <DashboardHeader onLogout={logout} />
 
-        <UsageBar
-          metrics={[
-            {
-              label: "Active Invoices",
-              value: 5,
-              max: 10,
-              color: "blue"
-            },
-            {
-              label: "Storage Used",
-              value: 2.5,
-              max: 5,
-              color: "green"
-            },
-            {
-              label: "API Calls",
-              value: 750,
-              max: 1000,
-              color: "yellow"
-            },
-            {
-              label: "Team Members",
-              value: 3,
-              max: 5,
-              color: "red"
-            }
-          ]}
-        />
+        <UsageBar />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <InvoiceSection onCreateInvoice={handleCreateInvoice} />
