@@ -48,8 +48,6 @@ export function UsageBar() {
         }
 
         fetchUsage();
-        const interval = setInterval(fetchUsage, 30000);
-        return () => clearInterval(interval);
     }, [username]);
 
     if (!username) {
