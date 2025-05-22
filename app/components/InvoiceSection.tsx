@@ -19,61 +19,41 @@ export function InvoiceSection({ onCreateInvoice }: InvoiceSectionProps) {
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     let file = event.target.files?.[0];
     if (!file) {
-      console.log('[InvoiceSection] No file selected');
       return;
     }
 
-    console.log('[InvoiceSection] File selected:', {
-      name: file.name,
-      type: file.type,
-      size: file.size
-    });
-
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      console.warn('[InvoiceSection] Invalid file type:', file.type);
       setError('Please select an image file');
       return;
     }
 
     // Validate file size (e.g., 10MB limit)
     if (file.size > 10 * 1024 * 1024) {
-      console.warn('[InvoiceSection] File too large:', file.size);
       setError('File size must be less than 10MB');
       return;
     }
 
     try {
-      console.log('[InvoiceSection] Starting upload process');
       setIsUploading(true);
       setError(null);
 
       // Get username
       const username = await getUsername();
       if (!username) {
-        console.error('[InvoiceSection] No username found');
         throw new Error('User not authenticated');
       }
-      console.log('[InvoiceSection] Got username:', username);
 
       // Initiate scan and get upload URL
-      console.log('[InvoiceSection] Initiating scan...');
       const scanResponse = await initiateScan(username);
-      console.log('[InvoiceSection] Got scan response:', {
-        status: scanResponse.status,
-        scan_id: scanResponse.scan_id,
-        upload_key: scanResponse.upload_key
-      });
       
       if (!scanResponse.scan_upload_url) {
         throw new Error('No upload URL received from server');
       }
 
       // Upload the image
-      console.log('[InvoiceSection] Starting image upload...');
       file = new File([file], scanResponse.upload_key, { type: scanResponse.content_type });
       await uploadImage(scanResponse.scan_upload_url, file, scanResponse.content_type);
-      console.log('[InvoiceSection] Upload completed successfully');
 
       // Reset file input
       if (fileInputRef.current) {
@@ -81,15 +61,9 @@ export function InvoiceSection({ onCreateInvoice }: InvoiceSectionProps) {
       }
 
     } catch (err) {
-      console.error('[InvoiceSection] Error in upload process:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to upload image';
-      console.error('[InvoiceSection] Error details:', {
-        message: errorMessage,
-        error: err
-      });
       setError(errorMessage);
     } finally {
-      console.log('[InvoiceSection] Upload process finished');
       setIsUploading(false);
     }
   };
